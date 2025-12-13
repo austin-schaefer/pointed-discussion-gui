@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Dict, Optional
 
-from scrython.cards import Multiverse
+from scrython.cards import ByMultiverseId
 
 log = logging.getLogger(__name__)
 
@@ -59,17 +59,18 @@ def fetch_card_metadata(
     rate_limiter.wait_if_needed()
 
     try:
-        card = Multiverse(id=multiverse_id)
+        card = ByMultiverseId(id=multiverse_id)
 
         # Basic required fields
         metadata = {
             "multiverse_id": multiverse_id,
-            "name": card.name(),
-            "set_name": card.set_name(),
-            "set_code": str(card.set_code()).upper(),
-            "artist": card.artist(),
-            "released_at": card.released_at(),
-            "scryfall_id": card.id(),
+            "name": card.name,
+            "set_name": card.set_name,
+            "set_code": str(card.set).upper(),
+            "artist": card.artist,
+            "released_at": card.released_at,
+            "scryfall_id": card.card_id,
+            "oracle_id": card.oracle_id,
         }
 
         # Optional fields that might not exist on all cards
@@ -82,10 +83,10 @@ def fetch_card_metadata(
             ("image_uris", "image_uris"),
         ]
 
-        for field_name, method_name in optional_fields:
+        for field_name, attr_name in optional_fields:
             try:
-                if hasattr(card, method_name):
-                    value = getattr(card, method_name)()
+                if hasattr(card, attr_name):
+                    value = getattr(card, attr_name)
                     metadata[field_name] = value
                 else:
                     metadata[field_name] = None

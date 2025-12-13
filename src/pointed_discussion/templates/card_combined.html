@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ card_name }} - All Printings - Pointed Discussion</title>
+    <link rel="stylesheet" href="../../static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Pointed Discussion</h1>
+        <p>Magic: The Gathering Card Comments Archive</p>
+    </header>
+
+    <main>
+        <div class="combined-container">
+            <div class="combined-header">
+                <h2>{{ card_name }} - All Printings</h2>
+                <p class="combined-subtitle">
+                    Showing {{ total_comments }} comments across {{ printings|length }} printing{{ 's' if printings|length != 1 else '' }}
+                </p>
+            </div>
+
+            <div class="printings-selector">
+                <label for="printing-filter">Filter by printing:</label>
+                <select id="printing-filter">
+                    <option value="all">All Printings ({{ total_comments }} comments)</option>
+                    {% for printing in printings %}
+                    <option value="{{ printing.multiverse_id }}">
+                        {{ printing.set_name or 'Unknown Set' }} [{{ printing.set_code or '?' }}]
+                        ({{ printing.comments|length }} comments)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="comments-section">
+                <div class="comments-header">
+                    <h3 id="comment-count-display">All Comments ({{ total_comments }})</h3>
+                    <div class="comment-sort-controls">
+                        <label for="comment-sort">Sort by:</label>
+                        <select id="comment-sort">
+                            <option value="rating">Highest Rated</option>
+                            <option value="date">Date (Newest First)</option>
+                            <option value="date-asc">Date (Oldest First)</option>
+                            <option value="printing">By Printing (Release Order)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="comments-list" id="comments-list">
+                    {% for printing in printings %}
+                        {% for comment in printing.comments %}
+                        <article class="comment"
+                                 data-comment-id="{{ comment.id }}"
+                                 data-rating="{{ comment.star_rating }}"
+                                 data-vote-count="{{ comment.vote_count }}"
+                                 data-date="{{ comment.datetime }}"
+                                 data-timestamp="{{ comment.timestamp }}"
+                                 data-printing-id="{{ printing.multiverse_id }}"
+                                 data-printing-date="{{ printing.released_at or '9999-99-99' }}">
+                            <div class="printing-badge">
+                                <a href="{{ printing.multiverse_id }}.html" title="View this printing">
+                                    {{ printing.set_code or '?' }}
+                                    {% if printing.collector_number %}#{{ printing.collector_number }}{% endif %}
+                                </a>
+                            </div>
+                            <header class="comment-header">
+                                <strong class="comment-author">{{ comment.author }}</strong>
+                                <time class="comment-date" datetime="{{ comment.datetime }}" title="{{ comment.datetime }}">
+                                    {{ comment.datetime.split(' ')[0] }}
+                                </time>
+                                <div class="comment-rating">
+                                    <span class="stars">{{ comment.star_display }}</span>
+                                    {% if comment.vote_count > 0 %}
+                                    <span class="vote-info">({{ comment.vote_count }} vote{{ 's' if comment.vote_count != 1 else '' }})</span>
+                                    {% endif %}
+                                </div>
+                            </header>
+                            <div class="comment-content">
+                                {{ comment.text_parsed|safe }}
+                            </div>
+                        </article>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>Generated from Gatherer Comment Section Archive</p>
+        <p><a href="../">← Back to Search</a></p>
+    </footer>
+
+    <script>
+        class CombinedCommentManager {
+            constructor() {
+                this.commentsContainer = document.getElementById('comments-list');
+                this.sortSelect = document.getElementById('comment-sort');
+                this.filterSelect = document.getElementById('printing-filter');
+                this.countDisplay = document.getElementById('comment-count-display');
+                this.comments = [];
+                this.currentFilter = 'all';
+
+                if (this.commentsContainer && this.sortSelect && this.filterSelect) {
+                    this.extractComments();
+                    this.initializeControls();
+                    this.sortComments('rating');
+                }
+            }
+
+            extractComments() {
+                const commentElements = this.commentsContainer.querySelectorAll('.comment');
+                this.comments = Array.from(commentElements).map(element => ({
+                    element: element,
+                    id: element.dataset.commentId,
+                    rating: parseFloat(element.dataset.rating) || 0,
+                    voteCount: parseInt(element.dataset.voteCount) || 0,
+                    date: element.dataset.date,
+                    timestamp: parseInt(element.dataset.timestamp) || 0,
+                    printingId: element.dataset.printingId,
+                    printingDate: element.dataset.printingDate
+                }));
+            }
+
+            initializeControls() {
+                this.sortSelect.addEventListener('change', (e) => {
+                    this.sortComments(e.target.value);
+                });
+
+                this.filterSelect.addEventListener('change', (e) => {
+                    this.currentFilter = e.target.value;
+                    this.applyFilter();
+                });
+            }
+
+            applyFilter() {
+                let visibleCount = 0;
+
+                this.comments.forEach(comment => {
+                    if (this.currentFilter === 'all' || comment.printingId === this.currentFilter) {
+                        comment.element.style.display = '';
+                        visibleCount++;
+                    } else {
+                        comment.element.style.display = 'none';
+                    }
+                });
+
+                // Update count display
+                if (this.currentFilter === 'all') {
+                    this.countDisplay.textContent = `All Comments (${visibleCount})`;
+                } else {
+                    const selectedOption = this.filterSelect.options[this.filterSelect.selectedIndex];
+                    this.countDisplay.textContent = `Filtered Comments (${visibleCount})`;
+                }
+            }
+
+            sortComments(sortBy) {
+                let sortedComments;
+
+                switch (sortBy) {
+                    case 'rating':
+                        sortedComments = this.comments.sort((a, b) => {
+                            if (b.rating !== a.rating) return b.rating - a.rating;
+                            if (b.voteCount !== a.voteCount) return b.voteCount - a.voteCount;
+                            return b.timestamp - a.timestamp;
+                        });
+                        break;
+
+                    case 'date':
+                        sortedComments = this.comments.sort((a, b) => b.timestamp - a.timestamp);
+                        break;
+
+                    case 'date-asc':
+                        sortedComments = this.comments.sort((a, b) => a.timestamp - b.timestamp);
+                        break;
+
+                    case 'printing':
+                        sortedComments = this.comments.sort((a, b) => {
+                            if (a.printingDate !== b.printingDate) {
+                                return a.printingDate.localeCompare(b.printingDate);
+                            }
+                            return b.timestamp - a.timestamp;
+                        });
+                        break;
+
+                    default:
+                        sortedComments = this.comments;
+                }
+
+                sortedComments.forEach(comment => {
+                    this.commentsContainer.appendChild(comment.element);
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new CombinedCommentManager();
+        });
+    </script>
+
+    <style>
+        .combined-container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .combined-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 3px solid #3498db;
+        }
+
+        .combined-header h2 {
+            font-size: 2rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .combined-subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+        }
+
+        .printings-selector {
+            margin: 1.5rem 0;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .printings-selector label {
+            font-weight: 600;
+            color: #2c3e50;
+            white-space: nowrap;
+        }
+
+        .printings-selector select {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .printings-selector select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .printing-badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: #3498db;
+            color: white;
+            padding: 0.3rem 0.7rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .printing-badge a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .printing-badge a:hover {
+            text-decoration: underline;
+        }
+
+        .comment {
+            position: relative;
+            padding-right: 5.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .combined-container {
+                padding: 1.5rem;
+            }
+
+            .combined-header h2 {
+                font-size: 1.75rem;
+            }
+
+            .printings-selector {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .printings-selector label {
+                margin-bottom: 0.25rem;
+            }
+
+            .comment {
+                padding-right: 1rem;
+            }
+
+            .printing-badge {
+                position: static;
+                display: inline-block;
+                margin-bottom: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .combined-container {
+                padding: 1rem;
+            }
+
+            .combined-header {
+                padding-bottom: 1rem;
+            }
+
+            .combined-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .combined-subtitle {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</body>
+</html>

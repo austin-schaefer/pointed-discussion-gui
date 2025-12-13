@@ -54,6 +54,7 @@ class Card:
     artist: Optional[str] = None
     collector_number: Optional[str] = None
     released_at: Optional[str] = None
+    oracle_id: Optional[str] = None
 
     def __post_init__(self):
         """Sort comments by date."""

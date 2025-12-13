@@ -38,6 +38,7 @@ class SiteGenerator:
         self.cards: Dict[int, Card] = {}
         self.scryfall_data: Dict[int, Dict] = {}
         self.cardmap: Dict[str, int] = {}
+        self.cards_by_oracle_id: Dict[str, list[int]] = defaultdict(list)
 
         # Setup Jinja2 environment
         template_dir = Path(__file__).parent / "templates"
@@ -102,11 +103,15 @@ class SiteGenerator:
                     card.artist = scryfall_info.get("artist")
                     card.collector_number = scryfall_info.get("collector_number")
                     card.released_at = scryfall_info.get("released_at")
+                    card.oracle_id = scryfall_info.get("oracle_id")
 
                 self.cards[multiverse_id] = card
 
         # Process card links in all comments after all cards are loaded
         self.process_all_card_links()
+
+        # Build oracle_id index for grouping printings
+        self.build_oracle_id_index()
 
     def process_all_card_links(self) -> None:
         """Process card links in all comment text after all cards are loaded."""
@@ -115,6 +120,40 @@ class SiteGenerator:
         for card in self.cards.values():
             for comment in card.comments:
                 comment.text_parsed = self.process_card_links(comment.text_parsed)
+
+    def build_oracle_id_index(self) -> None:
+        """Build an index of cards grouped by oracle_id."""
+        log.info("Building oracle_id index for grouping printings...")
+
+        for multiverse_id, card in self.cards.items():
+            if card.oracle_id:
+                self.cards_by_oracle_id[card.oracle_id].append(multiverse_id)
+
+        # Sort printings by release date within each group
+        for oracle_id, multiverse_ids in self.cards_by_oracle_id.items():
+            self.cards_by_oracle_id[oracle_id] = sorted(
+                multiverse_ids,
+                key=lambda mid: self.cards[mid].released_at or "9999-99-99",
+            )
+
+        log.info(
+            "Grouped %d cards into %d unique cards",
+            len(self.cards),
+            len(self.cards_by_oracle_id),
+        )
+
+    def get_other_printings(self, card: Card) -> list[Card]:
+        """Get all other printings of a card (excluding the current one)."""
+        if not card.oracle_id:
+            return []
+
+        other_ids = [
+            mid
+            for mid in self.cards_by_oracle_id.get(card.oracle_id, [])
+            if mid != card.multiverse_id
+        ]
+
+        return [self.cards[mid] for mid in other_ids]
 
     def find_card_image(self, multiverse_id: int) -> Optional[str]:
         """Find existing card image in the images directory."""
@@ -165,17 +204,70 @@ class SiteGenerator:
                     "No image found for %s (ID: %d)", card.name, card.multiverse_id
                 )
 
+        # Get other printings of this card
+        other_printings = self.get_other_printings(card)
+
+        # Determine combined page link
+        combined_page_link = None
+        if card.oracle_id and len(other_printings) > 0:
+            combined_page_link = f"combined/{card.oracle_id}.html"
+
         # Create cards directory
         cards_dir = self.output_dir / "cards"
         cards_dir.mkdir(exist_ok=True)
 
         # Render template
         template = self.jinja_env.get_template("card.html")
-        html_content = template.render(card=card)
+        html_content = template.render(
+            card=card,
+            other_printings=other_printings,
+            combined_page_link=combined_page_link,
+        )
 
         # Write HTML file
         card_file = cards_dir / f"{card.multiverse_id}.html"
         with open(card_file, "w", encoding="utf-8") as f:
+            f.write(html_content)
+
+    def generate_combined_page(self, oracle_id: str) -> None:
+        """Generate combined page showing all comments across all printings."""
+        multiverse_ids = self.cards_by_oracle_id.get(oracle_id, [])
+
+        if not multiverse_ids:
+            return
+
+        # Get all printings (already sorted by release date)
+        printings = [self.cards[mid] for mid in multiverse_ids]
+
+        # Get card name from first printing
+        card_name = printings[0].name
+
+        # Calculate total comments
+        total_comments = sum(len(printing.comments) for printing in printings)
+
+        log.debug(
+            "Generating combined page for %s (%d printings, %d comments)",
+            card_name,
+            len(printings),
+            total_comments,
+        )
+
+        # Create combined directory
+        combined_dir = self.output_dir / "cards" / "combined"
+        combined_dir.mkdir(exist_ok=True, parents=True)
+
+        # Render template
+        template = self.jinja_env.get_template("card_combined.html")
+        html_content = template.render(
+            card_name=card_name,
+            printings=printings,
+            total_comments=total_comments,
+            oracle_id=oracle_id,
+        )
+
+        # Write HTML file
+        combined_file = combined_dir / f"{oracle_id}.html"
+        with open(combined_file, "w", encoding="utf-8") as f:
             f.write(html_content)
 
     def generate_single_card(self, multiverse_id: int) -> None:
@@ -230,6 +322,31 @@ class SiteGenerator:
                     multiverse_id,
                     e,
                 )
+
+        # Generate combined pages for cards with multiple printings
+        if self.cards_by_oracle_id:
+            combined_count = sum(
+                1 for ids in self.cards_by_oracle_id.values() if len(ids) > 1
+            )
+            log.info("Generating %d combined pages...", combined_count)
+
+            for i, (oracle_id, multiverse_ids) in enumerate(
+                self.cards_by_oracle_id.items(), 1
+            ):
+                # Only generate combined page if there are multiple printings
+                if len(multiverse_ids) > 1:
+                    try:
+                        self.generate_combined_page(oracle_id)
+                        if i % 100 == 0:
+                            log.info("Generated %d/%d combined pages...", i, combined_count)
+                    except Exception as e:
+                        card_name = self.cards[multiverse_ids[0]].name
+                        log.error(
+                            "Error generating combined page for %s (oracle_id: %s): %s",
+                            card_name,
+                            oracle_id,
+                            e,
+                        )
 
         # Generate search/index page
         self.generate_search_page()
@@ -366,6 +483,22 @@ class SiteGenerator:
                     "  </url>",
                 ]
             )
+
+        # Add combined pages (for cards with multiple printings)
+        for oracle_id, multiverse_ids in sorted(self.cards_by_oracle_id.items()):
+            if len(multiverse_ids) > 1:
+                if self.base_url:
+                    combined_url = f"{self.base_url}/cards/combined/{oracle_id}.html"
+                else:
+                    combined_url = f"cards/combined/{oracle_id}.html"
+                sitemap_lines.extend(
+                    [
+                        "  <url>",
+                        f"    <loc>{combined_url}</loc>",
+                        "    <priority>0.9</priority>",
+                        "  </url>",
+                    ]
+                )
 
         sitemap_lines.append("</urlset>")
 
