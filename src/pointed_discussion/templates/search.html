@@ -42,37 +42,6 @@
                 </div>
             </div>
 
-            <div class="browse-section">
-                <h3>📚 Browse Categories</h3>
-                <div class="category-grid">
-                    <div class="category-card">
-                        <h4>Most Commented Cards</h4>
-                        <ul class="card-list">
-                            {% for card in most_commented[:5] %}
-                            <li>
-                                <a href="cards/combined/{{ card.oracle_id }}.html">{{ card.name }}</a>
-                                <span class="comment-count">({{ card.total_comments }} comments)</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        <a href="#all-cards" class="view-more">View all →</a>
-                    </div>
-
-                    <div class="category-card">
-                        <h4>Highest Rated Cards</h4>
-                        <ul class="card-list">
-                            {% for card in highest_rated[:5] %}
-                            <li>
-                                <a href="cards/combined/{{ card.oracle_id }}.html">{{ card.name }}</a>
-                                <span class="rating">{{ "★" * (card.avg_rating|int) }}{{ "☆" * (5 - (card.avg_rating|int)) }}</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        <a href="#all-cards" class="view-more">View all →</a>
-                    </div>
-                </div>
-            </div>
-
             <div class="all-cards-section" id="all-cards">
                 <h3>📖 All Cards A-Z</h3>
                 <div class="alphabet-nav">
