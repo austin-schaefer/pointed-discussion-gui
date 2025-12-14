@@ -361,14 +361,6 @@ class SiteGenerator:
 
     def generate_search_page(self) -> None:
         """Generate the main search/index page with full functionality."""
-        # Calculate statistics
-        total_comments = sum(len(card.comments) for card in self.cards.values())
-        cards_with_images = sum(
-            1
-            for card in self.cards.values()
-            if self.find_card_image(card.multiverse_id)
-        )
-
         # Helper function to get all comments for a card across printings
         def get_all_comments(oracle_id):
             all_comments = []
@@ -400,16 +392,6 @@ class SiteGenerator:
                 "printings_count": len(multiverse_ids),
             })
 
-        # Sort unique cards by most commented
-        most_commented = sorted(unique_cards, key=lambda c: c["total_comments"], reverse=True)[:10]
-
-        # Get highest rated unique cards (only those with at least 3 ratings)
-        highest_rated = [
-            card for card in unique_cards
-            if card["avg_rating"] > 0 and sum(1 for c in get_all_comments(card["oracle_id"]) if c.vote_count > 0) >= 3
-        ]
-        highest_rated = sorted(highest_rated, key=lambda c: c["avg_rating"], reverse=True)[:10]
-
         # Group unique cards alphabetically
         cards_by_letter = defaultdict(list)
         for card in sorted(unique_cards, key=lambda c: c["name"].lower()):
@@ -427,11 +409,6 @@ class SiteGenerator:
 
         # Prepare template data
         template_data = {
-            "card_count": len(self.cards),
-            "total_comments": total_comments,
-            "cards_with_images": cards_with_images,
-            "most_commented": most_commented,
-            "highest_rated": highest_rated,
             "cards_by_letter": dict(cards_by_letter),
             "alphabet": alphabet,
         }

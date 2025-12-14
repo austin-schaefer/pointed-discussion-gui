@@ -15,30 +15,16 @@
 
     <main class="search-main">
         <div class="search-container">
-            <div class="welcome-section">
-                <h2>Welcome to the Archive</h2>
-                <p>This site contains archived comments from the Magic: The Gathering Gatherer website, preserved for historical purposes.</p>
-                <div class="stats">
-                    <div class="stat-item">
-                        <strong>{{ card_count }}</strong>
-                        <span>Cards with Comments</span>
-                    </div>
-                    <div class="stat-item">
-                        <strong>{{ total_comments }}</strong>
-                        <span>Total Comments</span>
-                    </div>
-                    <div class="stat-item">
-                        <strong>{{ cards_with_images }}</strong>
-                        <span>Cards with Images</span>
-                    </div>
-                </div>
-            </div>
-
             <div class="search-section">
                 <h3>🔍 Search Cards</h3>
-                <div class="search-box">
-                    <input type="text" id="cardSearch" placeholder="Search by card name..." autocomplete="off">
-                    <div id="searchResults" class="search-results"></div>
+                <div class="search-content">
+                    <div class="search-box">
+                        <input type="text" id="cardSearch" placeholder="Search by card name..." autocomplete="off">
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                    <div class="search-description">
+                        <p>An archive of Gatherer comments from the Mothership. Click a card below to view comments for all printings, or search for a specific printing.</p>
+                    </div>
                 </div>
             </div>
 
@@ -61,8 +47,9 @@
                                 <a href="cards/combined/{{ card.oracle_id }}.html" class="card-link">
                                     <span class="card-name">{{ card.name }}</span>
                                     <span class="card-meta">
-                                        {{ card.total_comments }} comment{{ 's' if card.total_comments != 1 else '' }}
-                                        {% if card.avg_rating > 0 %} • {{ "★" * (card.avg_rating|int) }}{% endif %}
+                                        <span class="meta-item">{{ card.total_comments }} comment{{ 's' if card.total_comments != 1 else '' }}</span>
+                                        {% if card.avg_rating > 0 %}<span class="meta-item">{{ "★" * (card.avg_rating|int) }}</span>{% endif %}
+                                        <span class="meta-item meta-printings">{{ card.printings_count }} printing{{ 's' if card.printings_count != 1 else '' }}</span>
                                     </span>
                                 </a>
                             </div>
