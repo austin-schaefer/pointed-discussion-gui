@@ -213,6 +213,29 @@ footer a:hover {
     text-decoration: underline;
 }
 
+.footer-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+}
+
+.footer-separator {
+    color: #666;
+}
+
+.github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.github-link svg {
+    vertical-align: middle;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     body > header h1 {
