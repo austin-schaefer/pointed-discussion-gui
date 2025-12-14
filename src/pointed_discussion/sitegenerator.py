@@ -323,30 +323,27 @@ class SiteGenerator:
                     e,
                 )
 
-        # Generate combined pages for cards with multiple printings
+        # Generate combined pages for all unique cards
         if self.cards_by_oracle_id:
-            combined_count = sum(
-                1 for ids in self.cards_by_oracle_id.values() if len(ids) > 1
-            )
+            combined_count = len(self.cards_by_oracle_id)
             log.info("Generating %d combined pages...", combined_count)
 
             for i, (oracle_id, multiverse_ids) in enumerate(
                 self.cards_by_oracle_id.items(), 1
             ):
-                # Only generate combined page if there are multiple printings
-                if len(multiverse_ids) > 1:
-                    try:
-                        self.generate_combined_page(oracle_id)
-                        if i % 100 == 0:
-                            log.info("Generated %d/%d combined pages...", i, combined_count)
-                    except Exception as e:
-                        card_name = self.cards[multiverse_ids[0]].name
-                        log.error(
-                            "Error generating combined page for %s (oracle_id: %s): %s",
-                            card_name,
-                            oracle_id,
-                            e,
-                        )
+                # Generate combined page for all cards (even single printings)
+                try:
+                    self.generate_combined_page(oracle_id)
+                    if i % 100 == 0:
+                        log.info("Generated %d/%d combined pages...", i, combined_count)
+                except Exception as e:
+                    card_name = self.cards[multiverse_ids[0]].name
+                    log.error(
+                        "Error generating combined page for %s (oracle_id: %s): %s",
+                        card_name,
+                        oracle_id,
+                        e,
+                    )
 
         # Generate search/index page
         self.generate_search_page()
@@ -372,58 +369,58 @@ class SiteGenerator:
             if self.find_card_image(card.multiverse_id)
         )
 
-        # Sort cards by various criteria
-        most_commented = sorted(
-            self.cards.values(), key=lambda c: len(c.comments), reverse=True
-        )[:10]
+        # Helper function to get all comments for a card across printings
+        def get_all_comments(oracle_id):
+            all_comments = []
+            for mid in self.cards_by_oracle_id.get(oracle_id, []):
+                all_comments.extend(self.cards[mid].comments)
+            return all_comments
 
-        # Calculate average ratings for cards with votes
-        def get_avg_rating(card):
-            if not card.comments:
+        # Helper function to calculate average rating
+        def get_avg_rating(comments):
+            if not comments:
                 return 0
-            rated_comments = [c for c in card.comments if c.vote_count > 0]
+            rated_comments = [c for c in comments if c.vote_count > 0]
             if not rated_comments:
                 return 0
             return sum(c.star_rating for c in rated_comments) / len(rated_comments)
 
-        # Get highest rated cards (only those with at least 3 ratings)
-        rated_cards = [(card, get_avg_rating(card)) for card in self.cards.values()]
-        rated_cards = [
-            (card, rating)
-            for card, rating in rated_cards
-            if rating > 0 and sum(1 for c in card.comments if c.vote_count > 0) >= 3
-        ]
-        highest_rated = sorted(rated_cards, key=lambda x: x[1], reverse=True)[:10]
+        # Build unique card list (one entry per oracle_id)
+        unique_cards = []
+        for oracle_id, multiverse_ids in self.cards_by_oracle_id.items():
+            # Use the first (earliest) printing as representative
+            representative_card = self.cards[multiverse_ids[0]]
+            all_comments = get_all_comments(oracle_id)
+
+            unique_cards.append({
+                "name": representative_card.name,
+                "oracle_id": oracle_id,
+                "total_comments": len(all_comments),
+                "avg_rating": get_avg_rating(all_comments),
+                "printings_count": len(multiverse_ids),
+            })
+
+        # Sort unique cards by most commented
+        most_commented = sorted(unique_cards, key=lambda c: c["total_comments"], reverse=True)[:10]
+
+        # Get highest rated unique cards (only those with at least 3 ratings)
         highest_rated = [
-            {
-                "name": card.name,
-                "multiverse_id": card.multiverse_id,
-                "display_name": card.display_name,
-                "avg_rating": rating,
-            }
-            for card, rating in highest_rated
+            card for card in unique_cards
+            if card["avg_rating"] > 0 and sum(1 for c in get_all_comments(card["oracle_id"]) if c.vote_count > 0) >= 3
         ]
+        highest_rated = sorted(highest_rated, key=lambda c: c["avg_rating"], reverse=True)[:10]
 
-        # Group cards alphabetically
+        # Group unique cards alphabetically
         cards_by_letter = defaultdict(list)
-        for card in sorted(self.cards.values(), key=lambda c: c.name.lower()):
-            first_char = card.name[0].upper()
-
-            # Create enhanced card object with avg_rating
-            enhanced_card = {
-                "name": card.name,
-                "multiverse_id": card.multiverse_id,
-                "display_name": card.display_name,
-                "comments": card.comments,
-                "avg_rating": get_avg_rating(card),
-            }
+        for card in sorted(unique_cards, key=lambda c: c["name"].lower()):
+            first_char = card["name"][0].upper()
 
             if first_char.isdigit():
-                cards_by_letter["0-9"].append(enhanced_card)
+                cards_by_letter["0-9"].append(card)
             elif first_char.isalpha():
-                cards_by_letter[first_char].append(enhanced_card)
+                cards_by_letter[first_char].append(card)
             else:
-                cards_by_letter["0-9"].append(enhanced_card)
+                cards_by_letter["0-9"].append(card)
 
         # Create alphabet list
         alphabet = list(string.ascii_uppercase)

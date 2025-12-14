@@ -50,8 +50,8 @@
                         <ul class="card-list">
                             {% for card in most_commented[:5] %}
                             <li>
-                                <a href="cards/{{ card.multiverse_id }}.html">{{ card.display_name }}</a>
-                                <span class="comment-count">({{ card.comments|length }} comments)</span>
+                                <a href="cards/combined/{{ card.oracle_id }}.html">{{ card.name }}</a>
+                                <span class="comment-count">({{ card.total_comments }} comments)</span>
                             </li>
                             {% endfor %}
                         </ul>
@@ -63,7 +63,7 @@
                         <ul class="card-list">
                             {% for card in highest_rated[:5] %}
                             <li>
-                                <a href="cards/{{ card.multiverse_id }}.html">{{ card.display_name }}</a>
+                                <a href="cards/combined/{{ card.oracle_id }}.html">{{ card.name }}</a>
                                 <span class="rating">{{ "★" * (card.avg_rating|int) }}{{ "☆" * (5 - (card.avg_rating|int)) }}</span>
                             </li>
                             {% endfor %}
@@ -89,10 +89,10 @@
                         <div class="cards-columns">
                             {% for card in cards_group %}
                             <div class="card-item">
-                                <a href="cards/{{ card.multiverse_id }}.html" class="card-link">
-                                    <span class="card-name">{{ card.display_name }}</span>
+                                <a href="cards/combined/{{ card.oracle_id }}.html" class="card-link">
+                                    <span class="card-name">{{ card.name }}</span>
                                     <span class="card-meta">
-                                        {{ card.comments|length }} comment{{ 's' if card.comments|length != 1 else '' }}
+                                        {{ card.total_comments }} comment{{ 's' if card.total_comments != 1 else '' }}
                                         {% if card.avg_rating > 0 %} • {{ "★" * (card.avg_rating|int) }}{% endif %}
                                     </span>
                                 </a>

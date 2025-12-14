@@ -75,7 +75,7 @@ class Card:
             distinguishers.append(f"#{self.collector_number}")
 
         if distinguishers:
-            return f"{base_name} — {' | '.join(distinguishers)}"
+            return f"{base_name} {' '.join(distinguishers)}"
         else:
             # Fallback to multiverse ID if no other info
             return f"{base_name} (ID: {self.multiverse_id})"
