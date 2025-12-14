@@ -13,7 +13,7 @@ from typing import Optional, Set
 
 import requests
 from PIL import Image
-from scrython.cards import Multiverse
+from scrython.cards import ByMultiverseId
 
 log = logging.getLogger(__name__)
 
@@ -98,19 +98,19 @@ class ImageDownloader:
             # Apply rate limiting before API call
             self.rate_limiter.wait_if_needed()
 
-            card_data = Multiverse(id=multiverse_id)
+            card_data = ByMultiverseId(id=multiverse_id)
 
-            if card_data.image_uris():
-                image_uris = card_data.image_uris()
+            if card_data.image_uris:
+                image_uris = card_data.image_uris
                 # Prefer PNG format if available, fallback to large JPEG
                 if "png" in image_uris:
                     return image_uris["png"]
                 elif "large" in image_uris:
                     return image_uris["large"]
-            elif card_data.card_faces():
+            elif card_data.card_faces:
                 # For double-faced cards, use the front face
-                if "image_uris" in card_data.card_faces()[0]:
-                    image_uris = card_data.card_faces()[0]["image_uris"]
+                if "image_uris" in card_data.card_faces[0]:
+                    image_uris = card_data.card_faces[0]["image_uris"]
                     # Prefer PNG format if available, fallback to large JPEG
                     if "png" in image_uris:
                         return image_uris["png"]
