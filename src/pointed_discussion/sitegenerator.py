@@ -351,6 +351,9 @@ class SiteGenerator:
         # Generate sitemap
         self.generate_sitemap()
 
+        # Generate redirects file for friendly URLs
+        self.generate_redirects()
+
         # Copy static files
         self.copy_static_files()
 
@@ -421,6 +424,66 @@ class SiteGenerator:
         index_file = self.output_dir / "index.html"
         with open(index_file, "w", encoding="utf-8") as f:
             f.write(html_content)
+
+    @staticmethod
+    def slugify_card_name(name: str) -> str:
+        """Convert card name to URL-friendly slug.
+
+        Handles special characters commonly found in MTG card names:
+        - Spaces → hyphens
+        - Slashes (split cards) → hyphens
+        - Apostrophes, quotes, commas → removed
+        - Other punctuation → removed
+        """
+        # Convert to lowercase
+        slug = name.lower()
+
+        # Replace slashes with hyphens (split cards like "Wear // Tear")
+        slug = slug.replace(" // ", "-").replace("//", "-").replace("/", "-")
+
+        # Remove apostrophes, quotes, commas, periods, question marks
+        chars_to_remove = ["'", '"', ",", ".", "?", "!", ":", ";"]
+        for char in chars_to_remove:
+            slug = slug.replace(char, "")
+
+        # Replace spaces with hyphens
+        slug = slug.replace(" ", "-")
+
+        # Remove any remaining non-alphanumeric characters except hyphens
+        slug = re.sub(r"[^a-z0-9\-]", "", slug)
+
+        # Replace multiple consecutive hyphens with single hyphen
+        slug = re.sub(r"-+", "-", slug)
+
+        # Remove leading/trailing hyphens
+        slug = slug.strip("-")
+
+        return slug
+
+    def generate_redirects(self) -> None:
+        """Generate Netlify _redirects file for friendly card name URLs."""
+        log.info("Generating redirects file...")
+
+        redirects = []
+
+        # Generate redirects for all combined pages (one per unique card)
+        for oracle_id, multiverse_ids in sorted(self.cards_by_oracle_id.items()):
+            # Get the card name from the first printing
+            card = self.cards[multiverse_ids[0]]
+            slug = self.slugify_card_name(card.name)
+
+            # Create redirect from slug to oracle_id page
+            # Format: /from /to [status code]
+            redirects.append(
+                f"/cards/combined/{slug} /cards/combined/{oracle_id}.html 301"
+            )
+
+        # Write _redirects file
+        redirects_file = self.output_dir / "_redirects"
+        with open(redirects_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(redirects))
+
+        log.info("Generated %d redirects", len(redirects))
 
     def generate_sitemap(self) -> None:
         """Generate XML sitemap for all cards."""
