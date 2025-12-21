@@ -1,0 +1,27 @@
+[build]
+  # Skip build - we're deploying pre-generated static files
+  command = "echo 'Site already built'"
+  publish = "output"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404
+
+# Enable compression for better performance
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = false
+  minify = true
+
+[build.processing.js]
+  bundle = false
+  minify = true
+
+[build.processing.html]
+  pretty_urls = false
+
+[build.processing.images]
+  compress = true
